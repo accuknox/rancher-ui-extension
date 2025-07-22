@@ -60,8 +60,7 @@ export default {
           <td>
             <span class='status-green'>
                 <a
-                
-                  :href="`/c/${clusterId}/explorer/security.kubearmor.com.${policy.kind.toLowerCase()}/${policy.metadata.name}`"
+                  :href="`/dashboard/c/${clusterId}/explorer/security.kubearmor.com.${policy.kind.toLowerCase()}/${policy.metadata.name}`"
                   class="underline text-blue-600 hover:text-blue-800"
                 >
                 {{ policy.metadata.name }}
