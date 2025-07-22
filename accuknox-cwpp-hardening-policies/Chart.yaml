@@ -1,0 +1,6 @@
+apiVersion: v2
+name: accuknox-cwpp-hardening-policies
+description: Deploy runtime security hardening policies using AccuKnox CWPP
+type: application
+version: 0.1.0
+appVersion: v0

@@ -1,0 +1,22 @@
+accuknox:
+  title: AccuKnox
+  dashboard:
+    name: Dashboard
+    label: "Overview"
+    description: |
+      AccuKnox CWPP
+    appInstall:
+      button: Install AccuKnox
+      reload: Unable to fetch AccuKnox Helm chart - reload required.
+      versionError:
+        title: Chart Version not found.
+        message: Unable to determine the latest stable version of the AccuKnox chart. Please make sure the Helm repository is configured correctly.
+    error:
+      auth: Authentication Error!
+  policies:
+    name: Policies
+    label: "Policies"
+    description: |
+      AccuKnox CWPP Policies
+general:
+  REFRESH: Refresh

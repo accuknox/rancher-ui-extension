@@ -1,0 +1,83 @@
+name: Build and release Extension Catalog Image to registry
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'demo-*'
+
+jobs:
+  build-extension-catalog:
+    name: Build container image
+    if: github.ref_type == 'tag' || (github.ref == 'refs/heads/main' && github.event_name != 'pull_request')
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # - name: Enable Corepack
+      #   run: corepack enable
+
+      - name: Configure Git
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          username: safeeraccuknox
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.8.0
+
+      - name: Setup Nodejs with yarn caching
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16.19.1'
+          cache: yarn
+          cache-dependency-path: ./ext/yarn.lock 
+
+      - name: Install dependencies
+        working-directory: ./ext  
+        run: yarn install
+
+      - name: Extract Tag
+        id: vars
+        run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Parse Extension Name
+        if: github.ref_type == 'tag'
+        working-directory: ./ext  
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          yarn parse-tag-name "${TAG_NAME}" "${{ github.run_id }}" "catalog"
+
+      - name: Build UI image
+        working-directory: ./ext  
+        run: |
+          echo "Running publish command"
+          yarn publish-pkgs -c -r docker.io -o safeeraccuknox -t "$TAG_NAME" -i ''
+
+      - name: Docker tag
+        run: |
+          image="docker.io/safeeraccuknox/demo:$TAG_NAME"
+          tag="${image##*:}" 
+          version="${tag#*-}" 
+          new_image="${image%%:*}:$version" 
+          echo "$new_image"
+
+          docker images -a 
+
+          docker tag $new_image accuknox-ui-extention:build
+          docker buildx build -t safeeraccuknox/demo:latest .
+          docker push safeeraccuknox/demo:latest
