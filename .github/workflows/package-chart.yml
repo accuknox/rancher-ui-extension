@@ -75,9 +75,11 @@ jobs:
       - name: Tag and Push to Harbor
         run: |
           image="${{ env.HARBOR_REGISTRY }}/${{ env.HARBOR_PROJECT }}/${{ env.IMAGE_NAME }}:$TAG_NAME"
-          tag="${image##*:}" 
-          version="${tag#*-}" 
-          new_image="${image%%:*}:$version" 
+          image="harbor.do.accuknox.com/npci/accuknox-rancher-ui-extension:rancher-ui-extension-0.1.1"
+          tag="${image##*:}"
+          version="${tag##*rancher-ui-extension-}"
+          new_image="${image%%:*}:$version"
+
           echo "$new_image"
 
           docker images -a 
