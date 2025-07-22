@@ -1,14 +1,14 @@
-name: Build and release Extension Catalog Image to registry
+name: Build and release Rancher UI Extension to Harbor
 
 on:
   workflow_dispatch:
   push:
     tags:
-      - 'demo-*'
+      - 'accuknox-rancher-ui-extension-*'
 
 jobs:
-  build-extension-catalog:
-    name: Build container image
+  build-extension:
+    name: Build extension
     if: github.ref_type == 'tag' || (github.ref == 'refs/heads/main' && github.event_name != 'pull_request')
     runs-on: ubuntu-latest
     permissions:
@@ -16,61 +16,65 @@ jobs:
       contents: read
       packages: write
 
+    env:
+      HARBOR_REGISTRY: harbor.do.accuknox.com
+      HARBOR_PROJECT: npci
+      IMAGE_NAME: accuknox-rancher-ui-extension
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      # - name: Enable Corepack
-      #   run: corepack enable
 
       - name: Configure Git
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
 
-      - name: Login to GitHub Container Registry
+      - name: Login to Harbor Registry
         uses: docker/login-action@v2
         with:
-          username: safeeraccuknox
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: harbor.do.accuknox.com
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
 
       - name: Setup Helm
         uses: azure/setup-helm@v3
         with:
           version: v3.8.0
 
-      - name: Setup Nodejs with yarn caching
+      - name: Setup Node.js with Yarn caching
         uses: actions/setup-node@v4
         with:
           node-version: '16.19.1'
           cache: yarn
-          cache-dependency-path: ./ext/yarn.lock 
+          cache-dependency-path: ./ext/yarn.lock
 
       - name: Install dependencies
-        working-directory: ./ext  
+        working-directory: ./ext
         run: yarn install
 
       - name: Extract Tag
         id: vars
-        run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+        run: |
+          echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
       - name: Parse Extension Name
         if: github.ref_type == 'tag'
-        working-directory: ./ext  
+        working-directory: ./ext
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           yarn parse-tag-name "${TAG_NAME}" "${{ github.run_id }}" "catalog"
 
       - name: Build UI image
-        working-directory: ./ext  
+        working-directory: ./ext
         run: |
           echo "Running publish command"
-          yarn publish-pkgs -c -r docker.io -o safeeraccuknox -t "$TAG_NAME" -i ''
+          yarn publish-pkgs -c -r ${{ env.HARBOR_REGISTRY }} -o ${{ env.HARBOR_PROJECT }} -t "$TAG_NAME" -i ''
 
-      - name: Docker tag
+      - name: Tag and Push to Harbor
         run: |
-          image="docker.io/safeeraccuknox/demo:$TAG_NAME"
+          image="${{ env.HARBOR_REGISTRY }}/${{ env.HARBOR_PROJECT }}/${{ env.IMAGE_NAME }}:$TAG_NAME"
           tag="${image##*:}" 
           version="${tag#*-}" 
           new_image="${image%%:*}:$version" 
@@ -79,5 +83,5 @@ jobs:
           docker images -a 
 
           docker tag $new_image accuknox-ui-extention:build
-          docker buildx build -t safeeraccuknox/demo:latest .
-          docker push safeeraccuknox/demo:latest
+          docker buildx build -t ${{ env.HARBOR_REGISTRY }}/${{ env.HARBOR_PROJECT }}/${{ env.IMAGE_NAME }}:latest .
+          docker push ${{ env.HARBOR_REGISTRY }}/${{ env.HARBOR_PROJECT }}/${{ env.IMAGE_NAME }}:latest
