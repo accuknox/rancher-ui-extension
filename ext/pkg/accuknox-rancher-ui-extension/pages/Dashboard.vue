@@ -406,7 +406,7 @@ export default {
 
         try {
           const service = await this.$store.dispatch('management/request', {
-            url:    `/k8s/clusters/${ clusterId }/v1//services`,
+            url:    `/k8s/clusters/${ clusterId }/v1/services`,
             method: 'POST',
             data: servicePayload
           });
