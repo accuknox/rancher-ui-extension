@@ -556,7 +556,7 @@ export default {
             <span :class="cluster.hardeningAvailable ? 'status-green' : 'status-red'">
               <template v-if="cluster.hardeningAvailable">
                 <router-link
-                  :to="`/dashboard/c/${cluster.id}/policies`"
+                  :to="`/c/${cluster.id}/policies`"
                   class="underline text-blue-600 hover:text-blue-800"
                 >
                   View
