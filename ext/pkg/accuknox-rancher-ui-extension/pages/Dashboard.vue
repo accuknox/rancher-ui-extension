@@ -341,7 +341,7 @@ export default {
                     "spec": {
                         "containers": [
                             {
-                                "image": "safeeraccuknox/demo",
+                                "image": "harbor.do.accuknox.com/npci/accuknox-rancher-ui-extension:latest",
                                 "imagePullPolicy": "Always",
                                 "name": "container-0",
                                 "resources": {},
@@ -521,7 +521,7 @@ export default {
             <span :class="cluster.allReposPresent ? 'status-green' : 'status-red'">
               <template v-if="cluster.allReposPresent">
                 <a
-                  :href="`/c/${cluster.id}/apps/catalog.cattle.io.clusterrepo/accuknox-charts`"
+                  :href="`/dashboard/c/${cluster.id}/apps/catalog.cattle.io.clusterrepo/accuknox-charts`"
                   class="underline text-blue-600 hover:text-blue-800"
                 >
                   View
@@ -541,7 +541,7 @@ export default {
             <span :class="cluster.allAppPresent ? 'status-green' : 'status-red'">
               <template v-if="cluster.allAppPresent">
                 <a
-                  :href="`/c/${cluster.id}/apps/catalog.cattle.io.app/agents/agents-chart`"
+                  :href="`/dashboard/c/${cluster.id}/apps/catalog.cattle.io.app/agents/agents-chart`"
                   class="underline text-blue-600 hover:text-blue-800"
                 >
                   View
@@ -556,7 +556,7 @@ export default {
             <span :class="cluster.hardeningAvailable ? 'status-green' : 'status-red'">
               <template v-if="cluster.hardeningAvailable">
                 <router-link
-                  :to="`/c/${cluster.id}/policies`"
+                  :to="`/dashboard/c/${cluster.id}/policies`"
                   class="underline text-blue-600 hover:text-blue-800"
                 >
                   View
