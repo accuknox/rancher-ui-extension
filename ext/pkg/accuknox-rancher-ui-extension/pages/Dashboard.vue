@@ -30,38 +30,48 @@ export default {
   },
   components: { Loading },
   async mounted() {
+    this.loading = true;
     try {
       const res = await this.$store.dispatch('management/findAll', {
         type: MANAGEMENT.CLUSTER,
       });
       const clusters = res || [];
       const clusterDetails = []
+      console.log(clusters);
       for (const cluster of clusters) {
-        const res = await this.$store.dispatch('management/request', {
-          url:    `/k8s/clusters/${ cluster.id }/v1/catalog.cattle.io.clusterrepo`,
-          method: 'GET',
-        });
-        const allRepos = res.data
-        const allReposPresent = this.checkAllReposPresent(allRepos);
-
+        let allRepos = []
+        let allReposPresent = false;
         let allChartsPresent = false
-        if (allReposPresent) {
-          allChartsPresent = await this.checkChartAvailability(cluster.id);
-        }
+        let hardeningAvailable = false;
+        let allAppPresent = false;
+        let error = '';
+        try{
+          const res = await this.$store.dispatch('management/request', {
+            url:    `/k8s/clusters/${ cluster.id }/v1/catalog.cattle.io.clusterrepo`,
+            method: 'GET',
+          });
+          allRepos = res.data
+          allReposPresent = this.checkAllReposPresent(allRepos);
 
-        const apps = await this.getInstallConfig(cluster.spec.displayName)
-        let allAppPresent = true
-        for (const app of apps) {
-          const appDetails = await this.getAppDetails(cluster.id, `${app.namespace}/${app.chartName}`)
-          allAppPresent = !!appDetails?.id;
-        }
+          if (allReposPresent) {
+            allChartsPresent = await this.checkChartAvailability(cluster.id);
+          }
 
-        const hardeningAppDetails = await this.getAppDetails(cluster.id, `kubearmor/accuknox-cwpp-hardening-policies`)
-        const hardeningAvailable = !!hardeningAppDetails?.id;
+          const apps = await this.getInstallConfig(cluster.spec.displayName)
+          for (const app of apps) {
+            const appDetails = await this.getAppDetails(cluster.id, `${app.namespace}/${app.chartName}`)
+            allAppPresent = !!appDetails?.id;
+          }
+
+          const hardeningAppDetails = await this.getAppDetails(cluster.id, `kubearmor/accuknox-cwpp-hardening-policies`)
+          hardeningAvailable = !!hardeningAppDetails?.id;
+        } catch (e) {
+          error = '(Error)'
+        }
 
         clusterDetails.push({
-          id: cluster.id,
-          name: cluster.spec.displayName,
+          id: `${cluster.id}`,
+          name: `${cluster.spec.displayName}${error}`,
           systemProjectId: cluster.systemProjectId,
           repos: allRepos,
           allReposPresent: allReposPresent,
@@ -74,6 +84,7 @@ export default {
     } catch (e) {
       handleGrowl({ error: e, store: this.$store });
     }
+    this.loading = false;
   },
   watch: {
     selectedClusterIds(newVal) {
