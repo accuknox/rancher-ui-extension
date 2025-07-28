@@ -11,16 +11,25 @@ export default {
       message: '',
       form: {
         accessKey: '',
-        clusterName: '',
         tokenURL: '',
         spireHost: '',
         ppsHost: '',
         knoxGateway: '',
         admissionController: false,
-        kyverno: false
+        kyverno: false,
+
+        clusterNamePrefix: '',
+        
+        authToken: '',
+        tenant: '',
+        label: '',
+        cspmURL: 'cspm.demo.accuknox.com',
       },
       loading: false,
       showModal: false,
+      showInstallReposForSelectedClustersModal: false,
+      showInstallKSPMForSelectedClustersModal: false,
+      kspmInstalling: false,
       repoInstalling: false,
       chartInstalling: false,
       hardeningChartInstalling: false,
@@ -45,6 +54,7 @@ export default {
         let hardeningAvailable = false;
         let allAppPresent = false;
         let error = '';
+        let savedClusterName = ''
         try{
           const res = await this.$store.dispatch('management/request', {
             url:    `/k8s/clusters/${ cluster.id }/v1/catalog.cattle.io.clusterrepo`,
@@ -56,8 +66,9 @@ export default {
           if (allReposPresent) {
             allChartsPresent = await this.checkChartAvailability(cluster.id);
           }
-
-          const apps = await this.getInstallConfig(cluster.spec.displayName)
+          const clusterDetails = await this.getClusterDetails(cluster.id);
+          savedClusterName = `(${clusterDetails.data.clusterName})`
+          const apps = await this.getInstallConfig(clusterDetails.data.clusterName)
           for (const app of apps) {
             const appDetails = await this.getAppDetails(cluster.id, `${app.namespace}/${app.chartName}`)
             allAppPresent = !!appDetails?.id;
@@ -71,7 +82,7 @@ export default {
 
         clusterDetails.push({
           id: `${cluster.id}`,
-          name: `${cluster.spec.displayName}${error}`,
+          name: `${cluster.spec.displayName} ${error} ${savedClusterName}`,
           systemProjectId: cluster.systemProjectId,
           repos: allRepos,
           allReposPresent: allReposPresent,
@@ -131,6 +142,7 @@ export default {
         namespace: 'kubearmor',
         projectId: cluster.systemProjectId,
         timeout: '600s',
+        forceUpdate: 'true',
         wait: true
       };
 
@@ -149,6 +161,100 @@ export default {
       }
       this.loading = false;
     },
+    async installKSPMCharts(cluster) {
+      this.loading = true;
+
+      const clusterDetails = await this.getClusterDetails(cluster.id);
+
+      const sharedValues = {
+        cronTab: '30 9 * * *',
+        clusterName: clusterDetails.data.clusterName,
+        tenantID: this.form.tenant,
+        authToken: this.form.authToken,
+        label: this.form.label,
+        url: this.form.cspmURL
+      };
+
+      const chartsToInstall = [
+        {
+          chartName: 'cis-k8s-job',
+          releaseName: 'accuknox-cis-k8s-job',
+          version: 'v1.1.4',
+          values: {
+            url: sharedValues.url,
+            tenantId: sharedValues.tenantID,
+            authToken: sharedValues.authToken,
+            cronTab: sharedValues.cronTab,
+            clusterName: sharedValues.clusterName,
+            label: sharedValues.label
+          }
+        },
+        {
+          chartName: 'k8s-risk-assessment-job',
+          releaseName: 'accuknox-k8s-risk-assessment-job',
+          version: 'v1.1.4',
+          values: {
+            tenantID: sharedValues.tenantID,
+            authToken: sharedValues.authToken,
+            cronTab: sharedValues.cronTab,
+            clusterName: sharedValues.clusterName,
+            URL: sharedValues.url,
+            label: sharedValues.label
+          }
+        },
+        {
+          chartName: 'kiem-job',
+          releaseName: 'accuknox-kiem-job',
+          version: 'v1.1.4',
+          values: {
+            label: sharedValues.label,
+            URL: sharedValues.url,
+            authToken: sharedValues.authToken,
+            cronTab: sharedValues.cronTab,
+            clusterName: sharedValues.clusterName,
+            tenantID: sharedValues.tenantID
+          }
+        }
+      ];
+
+      for (const chart of chartsToInstall) {
+        const data = {
+          charts: [
+            {
+              chartName: chart.chartName,
+              releaseName: chart.releaseName,
+              version: chart.version,
+              values: chart.values
+            }
+          ],
+          namespace: 'agents',
+          forceUpdate: 'true',
+          projectId: cluster.systemProjectId,
+          timeout: '600s',
+          wait: true
+        };
+
+        try {
+          await this.$store.dispatch('management/request', {
+            url: `/k8s/clusters/${cluster.id}/v1/catalog.cattle.io.clusterrepos/accuknox-charts?action=install`,
+            method: 'POST',
+            data
+          });
+          this.$store.dispatch('growl/success', {
+            title: `${chart.chartName} installed on ${cluster.name}`,
+            message: `${chart.chartName} chart installed successfully`
+          });
+        } catch (e) {
+          handleGrowl({
+            error: e,
+            store: this.$store,
+            overrideStatusText: `${chart.chartName} ${e._statusText?.toLowerCase() || 'failed'} on ${cluster.name}`
+          });
+        }
+      }
+
+      this.loading = false;
+    },
     async getAppDetails(clusterId, appName) {
       try {
         
@@ -161,10 +267,36 @@ export default {
         return null
       }
     },
+    async getClusterDetails(clusterId) {
+      try {
+        console.log("TEST", clusterId, `/k8s/clusters/${ clusterId }/v1/configmaps/agents/accuknoxrancheruiextentionconfig?link=index`)
+        const response = await this.$store.dispatch('management/request', {
+          url: `/k8s/clusters/${ clusterId }/v1/configmaps/agents/accuknoxrancheruiextentionconfig?link=index`,
+          method: 'GET'
+        });
+        return response
+      } catch {
+        return null
+      }
+    },
+    installReposForSelectedClustersModal() {
+      this.form = {
+        clusterNamePrefix: '',
+      };
+      this.showInstallReposForSelectedClustersModal = true;
+    },
+    installKSPMForSelectedClustersModal() {
+      this.form = {
+        authToken: '',
+        tenant: '',
+        label: '',
+        cspmURL: 'cspm.demo.accuknox.com',
+      };
+      this.showInstallKSPMForSelectedClustersModal = true;
+    },
     openModalWithDefaults() {
       this.form = {
         accessKey: '',
-        clusterName: '',
         tokenURL: 'cwpp.demo.accuknox.com',
         spireHost: 'spire.demo.accuknox.com',
         ppsHost: 'pps.demo.accuknox.com',
@@ -190,7 +322,7 @@ export default {
           version: 'v0.10.7',
           namespace: 'agents',
           values: {
-            clusterName: `${this.form.clusterNamePrefix}${clusterName}`,
+            clusterName: `${clusterName}`,
             accessKey: this.form.accessKey,
             spireHost: this.form.spireHost,
             tokenURL: this.form.tokenURL,
@@ -211,8 +343,8 @@ export default {
 
       const selected = this.clusterDetails.filter(c => this.selectedClusterIds.includes(c.id));
       for (const cluster of selected) {
-        const cleanName = cluster.name.replace(/[^a-zA-Z0-9]/g, '');
-        const charts = this.getInstallConfig(cleanName);
+        const clusterDetails = await this.getClusterDetails(cluster.id);
+        const charts = this.getInstallConfig(clusterDetails.data.clusterName);
 
         for (const chart of charts) {
           const data = {
@@ -296,7 +428,7 @@ export default {
       }
     },
 
-    async installRepos(clusterId) {
+    async installRepos(clusterId, clusterName) {
       const name = 'accuknox-charts';
       const opt = { cluster: clusterId };
       this.loading = true;
@@ -313,6 +445,37 @@ export default {
 
         await this.createNamespace(clusterId, 'agents');
         await this.createNamespace(clusterId, 'kubearmor');
+
+        const cleanName = clusterName.replace(/[^a-zA-Z0-9]/g, '');
+
+        const configPayload = {
+            "type": "configmap",
+            "links": {
+            },
+            "apiVersion": "v1",
+            "data": {
+                "clusterName": `${this.form.clusterNamePrefix}${cleanName}`
+            },
+            "kind": "ConfigMap",
+            "metadata": {
+                "name": `accuknoxrancheruiextentionconfig`,
+                "namespace": "agents",
+            }
+        }
+
+        try {
+          const config = await this.$store.dispatch('management/request', {
+            url:    `/k8s/clusters/${ clusterId }/v1/configmaps`,
+            method: 'POST',
+            data: configPayload
+          });
+        } catch (error) {
+          const status = error?.status;
+
+          if (status !== 409) {
+            throw error;
+          }
+        }
 
         const deploymentPayload = {
             "type": "apps.deployment",
@@ -466,9 +629,10 @@ export default {
     async installReposForSelectedClusters() {
       this.loading = true;
       this.repoInstalling = true;
+      this.showInstallReposForSelectedClustersModal = false;
       const selected = this.clusterDetails.filter(c => this.selectedClusterIds.includes(c.id));
       for (const cluster of selected) {
-        await this.installRepos(cluster.id);
+        await this.installRepos(cluster.id, cluster.name);
       }
       this.repoInstalling = false;
       this.loading = false;
@@ -483,6 +647,17 @@ export default {
       this.hardeningChartInstalling = false;
       this.loading = false;
     },
+    async installKSPMForSelectedClusters() {
+      this.loading = true;
+      this.kspmInstalling = true;
+      this.showInstallKSPMForSelectedClustersModal = false;
+      const selected = this.clusterDetails.filter(c => this.selectedClusterIds.includes(c.id));
+      for (const cluster of selected) {
+        await this.installKSPMCharts(cluster);
+      }
+      this.kspmInstalling = false;
+      this.loading = false;
+    },
   },
 };
 </script>
@@ -491,7 +666,7 @@ export default {
 
   <div  class="container p-4">
     <div class="button-bar">
-    <button class="btn btn-primary" :disabled="repoInstalling"  @click="installReposForSelectedClusters">
+    <button class="btn btn-primary" :disabled="repoInstalling"  @click="installReposForSelectedClustersModal">
       Install Repos
     </button>
     <button class="btn btn-primary" :disabled="chartInstalling" @click="openModalWithDefaults">
@@ -499,6 +674,9 @@ export default {
     </button>
     <button class="btn btn-primary" :disabled="hardeningChartInstalling" @click="installHardeningChartForSelectedClusters">
       Install Hardening Policies
+    </button>
+    <button class="btn btn-primary" :disabled="kspmInstalling" @click="installKSPMForSelectedClustersModal">
+      Install KSPM
     </button>
   </div>
     <table class="modern-table">
@@ -589,9 +767,6 @@ export default {
         <label>Access Key</label>
         <input v-model="form.accessKey" class="input" placeholder="Enter Access Key" />
 
-        <label class="mt-4">Cluster Name Prefix</label>
-        <input v-model="form.clusterNamePrefix" class="input" placeholder="Cluster Name Prefix" />
-
         <label class="mt-4">Token URL</label>
         <input v-model="form.tokenURL" class="input" placeholder="cwpp.demo.accuknox.com" />
 
@@ -613,6 +788,41 @@ export default {
         <div class="mt-6">
           <button class="btn role-primary" @click="installCharts">Install</button>
           <button class="btn ml-2" @click="showModal = false">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div v-if="showInstallReposForSelectedClustersModal" class="modal-overlay">
+      <div class="modal-content">
+        <h2 class="text-lg font-bold mb-4">AccuKnox</h2>
+
+        <label class="mt-4">Cluster Name Prefix</label>
+        <input v-model="form.clusterNamePrefix" class="input" placeholder="Cluster Name Prefix" />
+
+        <div class="mt-6">
+          <button class="btn role-primary" @click="installReposForSelectedClusters">Install</button>
+          <button class="btn ml-2" @click="showInstallReposForSelectedClustersModal = false">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div v-if="showInstallKSPMForSelectedClustersModal" class="modal-overlay">
+      <div class="modal-content">
+        <h2 class="text-lg font-bold mb-4">AccuKnox KSPM Configuration</h2>
+
+        <label class="mt-4">Auth Token</label>
+        <input v-model="form.authToken" class="input" placeholder="" />
+
+        <label class="mt-4">Tenant ID</label>
+        <input v-model="form.tenant" class="input" placeholder="" />
+
+        <label class="mt-4">Label</label>
+        <input v-model="form.label" class="input" placeholder="" />
+
+        <label class="mt-4">URL</label>
+        <input v-model="form.cspmURL" class="input" placeholder="cspm.demo.accuknox.com" />
+
+        <div class="mt-6">
+          <button class="btn role-primary" @click="installKSPMForSelectedClusters">Install</button>
+          <button class="btn ml-2" @click="showInstallKSPMForSelectedClustersModal = false">Cancel</button>
         </div>
       </div>
     </div>
