@@ -46,12 +46,12 @@ export default {
       });
       const clusters = res || [];
       const clusterDetails = []
-      console.log(clusters);
       for (const cluster of clusters) {
         let allRepos = []
         let allReposPresent = false;
         let allChartsPresent = false
         let hardeningAvailable = false;
+        let kspmAvailable = false;
         let allAppPresent = false;
         let error = '';
         let savedClusterName = ''
@@ -76,6 +76,9 @@ export default {
 
           const hardeningAppDetails = await this.getAppDetails(cluster.id, `kubearmor/accuknox-cwpp-hardening-policies`)
           hardeningAvailable = !!hardeningAppDetails?.id;
+
+          const kspmAppDetails = await this.getAppDetails(cluster.id, `agents/accuknox-cis-k8s-job`)
+          kspmAvailable = !!kspmAppDetails?.id;
         } catch (e) {
           error = '(Error)'
         }
@@ -89,6 +92,7 @@ export default {
           allChartsPresent: allChartsPresent,
           allAppPresent: allAppPresent,
           hardeningAvailable: hardeningAvailable,
+          kspmAvailable: kspmAvailable,
         });
       }
       this.clusterDetails = clusterDetails
@@ -269,7 +273,6 @@ export default {
     },
     async getClusterDetails(clusterId) {
       try {
-        console.log("TEST", clusterId, `/k8s/clusters/${ clusterId }/v1/configmaps/agents/accuknoxrancheruiextentionconfig?link=index`)
         const response = await this.$store.dispatch('management/request', {
           url: `/k8s/clusters/${ clusterId }/v1/configmaps/agents/accuknoxrancheruiextentionconfig?link=index`,
           method: 'GET'
@@ -694,6 +697,7 @@ export default {
           <th>Chart Status</th>
           <th>Apps Status</th>
           <th>Hardening Status</th>
+          <th>KSPM Status</th>
         </tr>
       </thead>
       <tbody>
@@ -750,6 +754,16 @@ export default {
                 >
                   View
                 </router-link>
+              </template>
+              <template v-else>
+                ❌ Not Installed
+              </template>
+            </span>
+          </td>
+          <td>
+            <span :class="cluster.kspmAvailable ? 'status-green' : 'status-red'">
+              <template v-if="cluster.kspmAvailable">
+                ✅ Installed
               </template>
               <template v-else>
                 ❌ Not Installed
