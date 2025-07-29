@@ -139,7 +139,7 @@ export default {
       </button>
     </div>
 
-    <Loading v-if="isLoading && !clusterDetails.length" />
+    <Loading v-if="isLoading" />
 
     <ClusterStatusTable
       v-else

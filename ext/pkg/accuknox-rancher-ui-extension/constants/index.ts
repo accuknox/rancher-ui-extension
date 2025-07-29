@@ -36,6 +36,6 @@ export const KSPM_CHARTS_CONFIG = [
   {
     chartName: 'kiem-job',
     releaseName: 'accuknox-kiem-job',
-version: 'v1.1.4',
+    version: 'v1.1.4',
   },
 ];

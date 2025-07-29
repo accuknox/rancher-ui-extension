@@ -37,7 +37,6 @@ async function getAppDetails(store: Store<any>, clusterId: string, appName: stri
     });
     return response
 }
-// TODO... Add other simple GET requests here ( getClusterConfigMap, etc.)
 
 // --- Namespace and Repo Installation ---
 
@@ -215,8 +214,44 @@ export async function installKspmCharts(store: Store<any>, cluster: Cluster, for
     
     for (const kspmChart of KSPM_CHARTS_CONFIG) {
         const chartConfig = { name: kspmChart.chartName, version: kspmChart.version, namespace: AGENTS_NAMESPACE, releaseName: kspmChart.releaseName };
-        // TODO? Adjust values for each charts
-        // Note: You may need to adjust the values structure slightly for each chart
-        await installChart(store, cluster, chartConfig, sharedValues);
+
+        let chartValues = {};
+        switch (kspmChart.chartName) {
+            case 'cis-k8s-job':
+                chartValues = {
+                    url: sharedValues.url, 
+                    tenantId: sharedValues.tenantID, 
+                    authToken: sharedValues.authToken,
+                    cronTab: sharedValues.cronTab,
+                    clusterName: sharedValues.clusterName,
+                    label: sharedValues.label
+                };
+                break;
+            case 'k8s-risk-assessment-job':
+                chartValues = {
+                    URL: sharedValues.url, 
+                    tenantID: sharedValues.tenantID,
+                    authToken: sharedValues.authToken,
+                    cronTab: sharedValues.cronTab,
+                    clusterName: sharedValues.clusterName,
+                    label: sharedValues.label
+                };
+                break;
+            case 'kiem-job':
+                chartValues = {
+                    URL: sharedValues.url, 
+                    tenantID: sharedValues.tenantID,
+                    authToken: sharedValues.authToken,
+                    cronTab: sharedValues.cronTab,
+                    clusterName: sharedValues.clusterName,
+                    label: sharedValues.label
+                };
+                break;
+
+            default:
+                chartValues = {}; 
+                break;
+        }
+        await installChart(store, cluster, chartConfig, chartValues);
     }
 }
