@@ -26,7 +26,7 @@
           </td>
           <td>
             <span :class="cluster.allReposPresent ? 'status-green' : 'status-red'">
-              {{ cluster.allReposPresent ? '✅ Installed' : '❌ Not Installed' }}
+              {{ cluster.allReposPresent ? '✅ Ready' : '❌ Not Ready' }}
             </span>
           </td>
           <td>
@@ -34,7 +34,21 @@
               {{ cluster.allChartsPresent ? '✅ Ready' : '❌ Not Ready' }}
             </span>
           </td>
-          <!-- ... other status columns ... -->
+          <td>
+            <span :class="cluster.allAppPresent ? 'status-green' : 'status-red'">
+              {{ cluster.allAppPresent ? '✅ Ready' : '❌ Not Ready' }}
+            </span>
+          </td>
+          <td>
+            <span :class="cluster.hardeningAvailable ? 'status-green' : 'status-red'">
+              {{ cluster.hardeningAvailable ? '✅ Ready' : '❌ Not Ready' }}
+            </span>
+          </td>
+          <td>
+            <span :class="cluster.kspmAvailable ? 'status-green' : 'status-red'">
+              {{ cluster.kspmAvailable ? '✅ Ready' : '❌ Not Ready' }}
+            </span>
+          </td>
         </tr>
         <tr v-if="!clusters.length && !loading">
           <td colspan="6" class="text-center">No clusters found.</td>

@@ -1,4 +1,3 @@
-// TODO
 import { Store } from 'vuex';
 import { MANAGEMENT } from '@shell/config/types';
 import { handleGrowl } from '../utils/handle-growl';
@@ -31,7 +30,14 @@ export async function getClusterRepos(store: Store<any>, clusterId: string) {
   });
 }
 
-// ... Add other simple GET requests here (getAppDetails, getClusterConfigMap, etc.)
+async function getAppDetails(store: Store<any>, clusterId: string, appName: string) {
+    const response = await store.dispatch('management/request', {
+      url: `/k8s/clusters/${ clusterId }/v1/catalog.cattle.io.apps/${appName}?link=index`,
+      method: 'GET'
+    });
+    return response
+}
+// TODO... Add other simple GET requests here ( getClusterConfigMap, etc.)
 
 // --- Namespace and Repo Installation ---
 
@@ -53,10 +59,99 @@ export async function installRepos(store: Store<any>, cluster: Cluster, prefix: 
 
   const cleanName = cluster.name.replace(/[^a-zA-Z0-9]/g, '');
   
-  // Install ConfigMap, Deployment, Service... (omitted for brevity, but move the logic from original file here)
+  // Install ConfigMap, Deployment, Service
   const configMapPayload = { metadata: { name: CONFIG_MAP_NAME, namespace: AGENTS_NAMESPACE }, data: { clusterName: `${prefix}${cleanName}` }};
   await rancherRequest(store, { url: `/k8s/clusters/${ cluster.id }/v1/configmaps`, method: 'POST', data: configMapPayload }, `Failed to create ConfigMap on ${cluster.name}`).catch(e => { if (e?.status !== 409) throw e; });
   
+  const deploymentPayload = {
+    "type": "apps.deployment",
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+        "labels": {
+            "app": ACCUKNOX_REPO_NAME
+        },
+        "name": ACCUKNOX_REPO_NAME,
+        "namespace": AGENTS_NAMESPACE
+    },
+    "spec": {
+        "progressDeadlineSeconds": 600,
+        "replicas": 1,
+        "revisionHistoryLimit": 10,
+        "selector": {
+            "matchLabels": {
+                "app": ACCUKNOX_REPO_NAME
+            }
+        },
+        "strategy": {
+            "rollingUpdate": {
+                "maxSurge": "25%",
+                "maxUnavailable": "25%"
+            },
+            "type": "RollingUpdate"
+        },
+        "template": {
+            "metadata": {
+                "creationTimestamp": null,
+                "labels": {
+                    "app": ACCUKNOX_REPO_NAME
+                },
+                "namespace": AGENTS_NAMESPACE
+            },
+            "spec": {
+                "containers": [
+                    {
+                        "image": "harbor.do.accuknox.com/npci/accuknox-rancher-ui-extension:latest",
+                        "imagePullPolicy": "Always",
+                        "name": "container-0",
+                        "resources": {},
+                        "securityContext": {},
+                        "terminationMessagePath": "/dev/termination-log",
+                        "terminationMessagePolicy": "File"
+                    }
+                ],
+                "dnsPolicy": "ClusterFirst",
+                "restartPolicy": "Always",
+                "schedulerName": "default-scheduler",
+                "securityContext": {},
+                "terminationGracePeriodSeconds": 30
+            }
+        }
+      },
+  }
+  await rancherRequest(store, { url: `/k8s/clusters/${ cluster.id }/v1/apps.deployments`, method: 'POST', data: deploymentPayload }, `Failed to create Deployment on ${cluster.name}`).catch(e => { if (e?.status !== 409) throw e; });
+
+  const servicePayload = {
+      "type": "service",
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+          "name": ACCUKNOX_REPO_NAME,
+          "namespace": AGENTS_NAMESPACE,
+      },
+      "spec": {
+          "internalTrafficPolicy": "Cluster",
+          "ipFamilies": [
+              "IPv4"
+          ],
+          "ipFamilyPolicy": "SingleStack",
+          "ports": [
+              {
+                  "name": "port1",
+                  "port": 8080,
+                  "protocol": "TCP",
+                  "targetPort": 8080
+              }
+          ],
+          "selector": {
+            "app": ACCUKNOX_REPO_NAME
+          },
+          "sessionAffinity": "None",
+          "type": "ClusterIP"
+      }
+  }
+  await rancherRequest(store, { url: `/k8s/clusters/${ cluster.id }/v1/services`, method: 'POST', data: servicePayload }, `Failed to create Servuce on ${cluster.name}`).catch(e => { if (e?.status !== 409) throw e; });
+
   const repoPayload = { metadata: { name: ACCUKNOX_REPO_NAME }, spec: { url: `http://${ACCUKNOX_REPO_NAME}.${AGENTS_NAMESPACE}:8080/charts`, forceUpdate: 'true' } };
   await rancherRequest(store, { url: `/k8s/clusters/${ cluster.id }/v1/catalog.cattle.io.clusterrepo`, method: 'POST', data: repoPayload }, `Failed to create Repo on ${cluster.name}`).catch(e => { if (e?.status !== 409) throw e; });
 
@@ -93,7 +188,11 @@ export async function installCwppCharts(store: Store<any>, cluster: Cluster, for
         clusterName: clusterConfigName,
         accessKey: formData.accessKey,
         spireHost: formData.spireHost,
-        // ... and so on for all form fields
+        tokenURL: formData.tokenURL,
+        ppsHost: formData.ppsHost,
+        knoxGateway: formData.knoxGateway,
+        admissionController: formData.admissionController,
+        kyverno: formData.kyverno,
     };
     
     await installChart(store, cluster, KUBEARMOR_OPERATOR_CHART, { autoDeploy: true });
@@ -116,6 +215,7 @@ export async function installKspmCharts(store: Store<any>, cluster: Cluster, for
     
     for (const kspmChart of KSPM_CHARTS_CONFIG) {
         const chartConfig = { name: kspmChart.chartName, version: kspmChart.version, namespace: AGENTS_NAMESPACE, releaseName: kspmChart.releaseName };
+        // TODO? Adjust values for each charts
         // Note: You may need to adjust the values structure slightly for each chart
         await installChart(store, cluster, chartConfig, sharedValues);
     }

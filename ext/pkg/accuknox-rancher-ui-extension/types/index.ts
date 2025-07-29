@@ -5,7 +5,6 @@ export interface Cluster {
       displayName: string;
     };
     systemProjectId: string;
-    // Add other properties from MANAGEMENT.CLUSTER as needed
   }
   
   export interface ClusterDetail {
