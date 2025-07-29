@@ -3,7 +3,7 @@
       <div class="modal-content">
         <h2 class="text-lg font-bold mb-4">Install AccuKnox Repository</h2>
         <p class="mb-4">
-          This will create the necessary namespaces, service accounts, and add the AccuKnox chart repository to the selected clusters.
+          This will create the necessary namespaces, deployment, service, and add the AccuKnox chart repository to the selected clusters.
         </p>
   
         <label>Cluster Name Prefix (Optional)</label>
@@ -12,7 +12,9 @@
           class="input"
           placeholder="e.g., 'prod-'"
         />
-        <small class="form-text text-muted">A prefix to add to the cluster name stored in the ConfigMap.</small>
+        <small class="form-text text-muted">
+          Choose a unique name to identify this cluster within the Accuknox platform. This is a one-time setting and cannot be modified later.
+        </small>
   
         <div class="mt-6">
           <button class="btn role-primary" @click="onInstall">Install</button>
