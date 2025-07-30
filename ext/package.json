@@ -1,6 +1,6 @@
 {
   "name": "accuknox-rancher-ui-extension",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "private": false,
   "engines": {
     "node": ">=16"
