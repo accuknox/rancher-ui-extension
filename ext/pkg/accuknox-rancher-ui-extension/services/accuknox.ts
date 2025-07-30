@@ -56,7 +56,7 @@ export async function installRepos(store: Store<any>, cluster: Cluster, prefix: 
   await createNamespace(store, cluster.id, AGENTS_NAMESPACE);
   await createNamespace(store, cluster.id, KUBEARMOR_NAMESPACE);
 
-  const cleanName = cluster.name.replace(/[^a-zA-Z0-9]/g, '');
+  const cleanName = cluster.spec.displayName.replace(/[^a-zA-Z0-9]/g, '');
   
   // Install ConfigMap, Deployment, Service
   const configMapPayload = { metadata: { name: CONFIG_MAP_NAME, namespace: AGENTS_NAMESPACE }, data: { clusterName: `${prefix}${cleanName}` }};
@@ -190,8 +190,8 @@ export async function installCwppCharts(store: Store<any>, cluster: Cluster, for
         tokenURL: formData.tokenURL,
         ppsHost: formData.ppsHost,
         knoxGateway: formData.knoxGateway,
-        admissionController: formData.admissionController,
-        kyverno: formData.kyverno,
+        admissionController: { enabled: formData.admissionController },
+        kyverno: { enabled: formData.kyverno },
     };
     
     await installChart(store, cluster, KUBEARMOR_OPERATOR_CHART, { autoDeploy: true });
