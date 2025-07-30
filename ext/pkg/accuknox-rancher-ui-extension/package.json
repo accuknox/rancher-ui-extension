@@ -3,6 +3,7 @@
   "description": "AccuKnox extension for Rancher Manager",
   "version": "0.1.0",
   "private": false,
+  "icon": "./assets/accuknox.svg",
   "rancher": {
     "annotations": {
       "catalog.cattle.io/kube-version": ">= v1.16.0-0 < v1.31.0-0",
